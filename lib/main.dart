@@ -1,4 +1,9 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 void main() => runApp(MyApp());
 
@@ -22,6 +27,34 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  File _image;
+  String _text="";
+
+  Future getImage() async{
+    var image = await ImagePicker.pickImage(source: ImageSource.gallery);
+    setState(() {
+      _image = image;
+    });
+  }
+
+  //For now just doing for android
+  static const platform = const MethodChannel("myAppChannel");
+
+  Future getDetectedText() async {
+    _text = "";
+    String result;
+    try {
+      var map1 = {"data": _image.path};
+      result = await platform.invokeMethod("method", map1);
+    } on PlatformException catch (e) {
+      result = "Error: ${e.message}";
+    }
+    setState(() {
+      _text = result;
+    });
+  }
+
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -35,12 +68,23 @@ class _HomePageState extends State<HomePage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
-              Image.asset(
-                "images/img_banner.png",
-                height: 250,
-              ),
+              _image == null
+                  ? Image.asset(
+                      "images/img_banner.png",
+                      height: 300,
+                    )
+                  : Image.file(
+                      _image,
+                      height: 300,
+                    ),
               RaisedButton(
-                onPressed: () {},
+                onPressed: () async {
+                  if (await Permission.storage.request().isGranted) {
+                  // Either the permission was already granted before or the user just granted it.
+                  print("Storate permission Granted ================= TRUE");
+                  getImage();
+                  }
+                },
                 color: Colors.blue,
                 child: Text(
                   "Select Image",
@@ -48,15 +92,21 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
               RaisedButton(
-                onPressed: () {},
+                onPressed: () {
+                  getDetectedText();
+                },
                 color: Colors.green,
                 child: Text(
                   "Extract Text",
                   style: TextStyle(color: Colors.white, fontSize: 16),
                 ),
               ),
-              Text("Extracted Text:", style: TextStyle(color: Colors.black, fontSize: 20)),
-              SelectableText("Test...", style: TextStyle(color: Colors.black54, fontSize: 16),)
+              Text("Extracted Text:",
+                  style: TextStyle(color: Colors.black, fontSize: 20)),
+              SelectableText(
+                _text,
+                style: TextStyle(color: Colors.black54, fontSize: 16),
+              )
             ],
           ),
         ),
